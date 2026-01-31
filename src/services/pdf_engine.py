@@ -80,10 +80,27 @@ class PDFReconstructor:
         
         # Sort blocks by Y then X to handle reading order better
         blocks.sort(key=lambda b: (b["bbox"][1], b["bbox"][0]))
-        
-        # Implement column detection before merging blocks
-        columns = self._detect_columns(blocks)
 
+        # Separar cabeçalhos dos blocos de conteúdo
+        header_blocks = []
+        content_blocks = []
+        for block in blocks:
+            # Assumimos que o primeiro span de cada linha pode representar o tamanho da fonte do bloco
+            if "lines" in block and block["lines"]:
+                first_span_size = round(block["lines"][0]["spans"][0]["size"])
+                if self.is_header(first_span_size):
+                    header_blocks.append(block)
+                else:
+                    content_blocks.append(block)
+        
+        # Processar cabeçalhos primeiro
+        for block in header_blocks:
+            formatted_block = self._format_block_to_markdown(block)
+            if formatted_block:
+                page_markdown_output.append(formatted_block)
+
+        # Processar blocos de conteúdo em colunas
+        columns = self._detect_columns(content_blocks)
         for col_blocks in columns:
             merged_blocks = self._merge_text_blocks(col_blocks)
             for block in merged_blocks:
@@ -92,7 +109,10 @@ class PDFReconstructor:
                     page_markdown_output.append(formatted_block)
         
         if not is_first_page:
-            page_markdown_output.append("\n---\n") # Separador de página
+            # Adiciona o separador de página apenas se não for a primeira página
+            # E se houver algum conteúdo na página (além de apenas cabeçalhos)
+            if any(formatted_block for formatted_block in page_markdown_output if formatted_block.strip() != '' and not formatted_block.startswith('#')):
+                page_markdown_output.append("\n---\n") # Separador de página
                 
         return "\n".join(page_markdown_output)
 
@@ -123,11 +143,21 @@ class PDFReconstructor:
                 current_column_blocks.sort(key=lambda b: b["bbox"][1])
                 columns.append(current_column_blocks)
         
-        # Add any remaining blocks (might be headers spanning columns, or noise)
+        # Adiciona quaisquer blocos restantes (que podem ser cabeçalhos que abrangem colunas, ou ruído)
+        # Ao invés de inseri-los no topo, vamos deixá-los na ordem original se não foram processados
+        # No entanto, a lógica de `_process_page` já separa cabeçalhos, então isso se aplica mais a blocos de "ruído"
         remaining_blocks = [b for b in blocks if b["bbox"] not in processed_blocks]
         if remaining_blocks:
             remaining_blocks.sort(key=lambda b: b["bbox"][1])
-            columns.insert(0, remaining_blocks) # Put them at the top
+            # Se a coluna principal tiver uma grande quantidade de blocos, adicionar os restantes no final
+            # Caso contrário, pode indicar um layout mais complexo e os restantes devem ser tratados com cuidado
+            # Por enquanto, a melhor abordagem é deixar o _process_page lidar com a prioridade dos cabeçalhos.
+            # Se houverem blocos restantes, tratá-los como uma coluna extra no final para não perder conteúdo.
+            if columns:
+                columns.append(remaining_blocks)
+            else:
+                columns = [remaining_blocks]
+
 
         return columns
 
@@ -155,7 +185,10 @@ class PDFReconstructor:
             last_line_text = "".join([s["text"] for s in current_block["lines"][-1]["spans"]]).strip()
             ends_with_hyphen = last_line_text.endswith('-')
             
-            if (vert_dist < 5 and x_diff < 10) or (ends_with_hyphen and vert_dist < 10): # Relax vert_dist for hyphenated words
+            # Ajustar a heurística de fusão para ser mais tolerante com espaçamentos
+            # `vert_dist < 10` (era 5) para permitir um pouco mais de espaçamento entre linhas do mesmo parágrafo
+            # `x_diff < 20` (era 10) para permitir um pequeno desalinhamento horizontal
+            if (vert_dist < 10 and x_diff < 20) or (ends_with_hyphen and vert_dist < 15): # Relax vert_dist for hyphenated words
                 current_block["lines"].extend(b["lines"])
                 # Update bbox to encompass merged blocks
                 current_block["bbox"] = (
@@ -206,12 +239,12 @@ class PDFReconstructor:
                 line_text += self.process_span(span)
             block_text_lines.append(line_text.strip())
         
-        block_text = " ".join(block_text_lines).strip()
+        block_text = "\n".join(block_text_lines).strip() # Alterado para usar \n
 
         if prefix:
-            return f"{prefix}{block_text}\n"
+            return f"{prefix}{block_text}\n\n" # Duas quebras de linha
         elif block_text:
-            return f"{block_text}\n"
+            return f"{block_text}\n\n" # Duas quebras de linha
         return ""
 
 if __name__ == "__main__":
