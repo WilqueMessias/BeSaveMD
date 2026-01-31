@@ -7,8 +7,12 @@ import tempfile
 import markdown
 from xhtml2pdf import pisa
 import fitz  # PyMuPDF
-from pdf_styles import CSS_STYLE
-from flask_restx import Api, Namespace, Resource, reqparse
+from src.utils.pdf_styles import CSS_STYLE
+from flask_restx import Api, Namespace, Resource, reqparse, fields
+from src.utils.badge_preprocessor import TECH_COLORS, tech_badge_preprocessor
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -16,41 +20,8 @@ app = Flask(__name__)
 
 ALLOWED_EXT_MD = {".md"}
 ALLOWED_EXT_PDF = {".pdf"}
-MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10 MB
+MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", 10 * 1024 * 1024))  # 10 MB
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
-
-TECH_COLORS = {
-    "python": "3776AB", "javascript": "F7DF1E", "typescript": "3178C6",
-    "django": "092E20", "flask": "000000", "react": "61DAFB",
-    "sql": "4479A1", "postgresql": "4169E1", "sqlite": "003B57",
-    "docker": "2496ED", "node.js": "339933", "git": "F05032",
-    "github": "181717", "gitlab": "FC6D26"
-}
-
-def tech_badge_preprocessor(text):
-    """Heuristic: Find technology keywords and replace with badges if they belong to a skill list."""
-    lines = text.split('\n')
-    processed_lines = []
-    
-    for line in lines:
-        # If line looks like a tech category (starts with - **Category**)
-        if re.match(r'^\s*-\s+\*\*(.+)\*\*:', line):
-            header, content = line.split(':', 1)
-            techs = [t.strip() for t in content.replace(',', ' ').split()]
-            badges = []
-            for t in techs:
-                clean_t = t.lower().strip('.,')
-                if clean_t in TECH_COLORS:
-                    color = TECH_COLORS[clean_t]
-                    badges.append(f'![{t}](https://img.shields.io/badge/{t}-{color}?style=flat-square&logo={clean_t}&logoColor=white)')
-                else:
-                    badges.append(f'`{t}`')
-            processed_lines.append(f"{header}: {' '.join(badges)}")
-        else:
-            processed_lines.append(line)
-            
-    return '\n'.join(processed_lines)
-
 
 def _md_to_pdf_bytes(md_content: str, source_filename: str) -> bytes:
     """Converte Markdown em bytes de PDF. Usado por web e API."""
@@ -79,7 +50,7 @@ def _pdf_to_md_bytes(pdf_bytes: bytes, source_filename: str) -> str:
         tmp.write(pdf_bytes)
         tmp_path = tmp.name
     try:
-        from pdf_engine import PDFReconstructor
+        from src.services.pdf_engine import PDFReconstructor
         converter = PDFReconstructor(tmp_path)
         return converter.convert()
     finally:
@@ -148,6 +119,9 @@ api = Api(app,
           doc='/api/docs'
 )
 
+# Modelo para respostas de erro
+api_error_model = api.model('Error', {'error': fields.String(description='Mensagem de erro')})
+
 md_pdf_ns = Namespace('md-to-pdf', description='Conversão de Markdown para PDF')
 pdf_md_ns = Namespace('pdf-to-md', description='Conversão de PDF para Markdown')
 
@@ -177,8 +151,8 @@ class MdToPdfConverter(Resource):
     @md_pdf_ns.expect(md_upload_parser)
     @md_pdf_ns.produces(['application/pdf', 'application/json'])
     @md_pdf_ns.response(200, 'Sucesso', headers={'Content-Disposition': 'attachment; filename=*.pdf'})
-    @md_pdf_ns.response(400, 'Requisição inválida', model=api.model('Error', {'error': api.fields.String}))
-    @md_pdf_ns.response(500, 'Erro interno do servidor', model=api.model('Error', {'error': api.fields.String}))
+    @md_pdf_ns.response(400, 'Requisição inválida', model=api_error_model)
+    @md_pdf_ns.response(500, 'Erro interno do servidor', model=api_error_model)
     def post(self):
         """Converte um arquivo Markdown (.md) para PDF."""
         args = md_upload_parser.parse_args()
@@ -210,8 +184,8 @@ class PdfToMdConverter(Resource):
     @pdf_md_ns.expect(pdf_upload_parser)
     @pdf_md_ns.produces(['text/markdown', 'application/json'])
     @pdf_md_ns.response(200, 'Sucesso', headers={'Content-Disposition': 'attachment; filename=*.md'})
-    @pdf_md_ns.response(400, 'Requisição inválida', model=api.model('Error', {'error': api.fields.String}))
-    @pdf_md_ns.response(500, 'Erro interno do servidor', model=api.model('Error', {'error': api.fields.String}))
+    @pdf_md_ns.response(400, 'Requisição inválida', model=api_error_model)
+    @pdf_md_ns.response(500, 'Erro interno do servidor', model=api_error_model)
     def post(self):
         """Converte um arquivo PDF (.pdf) para Markdown."""
         args = pdf_upload_parser.parse_args()

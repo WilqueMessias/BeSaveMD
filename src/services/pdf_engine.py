@@ -115,16 +115,16 @@ class PDFReconstructor:
         for x_ref in x_coords:
             current_column_blocks = []
             for b in blocks:
-                if b["bbox"][0] >= x_ref - 5 and b["bbox"][0] <= x_ref + 5 and b not in processed_blocks:
+                if b["bbox"][0] >= x_ref - 5 and b["bbox"][0] <= x_ref + 5 and b["bbox"] not in processed_blocks:
                     current_column_blocks.append(b)
-                    processed_blocks.add(b)
+                    processed_blocks.add(b["bbox"])
             if current_column_blocks:
                 # Sort blocks within a column by Y-coordinate for correct reading order
                 current_column_blocks.sort(key=lambda b: b["bbox"][1])
                 columns.append(current_column_blocks)
         
         # Add any remaining blocks (might be headers spanning columns, or noise)
-        remaining_blocks = [b for b in blocks if b not in processed_blocks]
+        remaining_blocks = [b for b in blocks if b["bbox"] not in processed_blocks]
         if remaining_blocks:
             remaining_blocks.sort(key=lambda b: b["bbox"][1])
             columns.insert(0, remaining_blocks) # Put them at the top

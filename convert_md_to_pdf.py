@@ -2,7 +2,7 @@ import markdown
 from xhtml2pdf import pisa
 import sys
 import argparse
-from pdf_styles import CSS_STYLE
+from src.utils.pdf_styles import CSS_STYLE
 
 def convert_md_to_pdf(md_file, pdf_file):
     try:
