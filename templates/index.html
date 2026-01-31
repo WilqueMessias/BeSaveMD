@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MD to PDF Converter</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: var(--card);
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: var(--text);
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        p {
+            color: #64748b;
+            margin-bottom: 2rem;
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 0.75rem;
+            padding: 3rem 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .upload-area:hover,
+        .upload-area.dragover {
+            border-color: var(--primary);
+            background-color: #eff6ff;
+        }
+
+        .icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        input[type="file"] {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 1.5rem;
+            width: 100%;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        #file-name {
+            margin-top: 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--primary);
+            display: none;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 2rem;
+            background-color: #f1f5f9;
+            padding: 0.25rem;
+            border-radius: 0.5rem;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 0.5rem;
+            border: none;
+            background: none;
+            cursor: pointer;
+            border-radius: 0.25rem;
+            font-weight: 500;
+            color: #64748b;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            background-color: white;
+            color: var(--primary);
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Conversor Universal</h1>
+        <p>Converta documentos rapidamente.</p>
+
+        <div class="tabs">
+            <button class="tab active" onclick="setMode('md-to-pdf', this)">MD para PDF</button>
+            <button class="tab" onclick="setMode('pdf-to-md', this)">PDF para MD</button>
+        </div>
+
+        <form id="convert-form" action="/convert" method="post" enctype="multipart/form-data">
+            <div class="upload-area" id="drop-zone">
+                <span class="icon">📄</span>
+                <span id="drop-text">Arraste seu arquivo .md aqui<br>ou clique para selecionar</span>
+                <input type="file" name="file" id="file-input" accept=".md" required>
+            </div>
+            <div id="file-name"></div>
+            <button type="submit" id="submit-btn">Converter para PDF</button>
+        </form>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('file-input');
+        const fileNameDisplay = document.getElementById('file-name');
+        const dropZone = document.getElementById('drop-zone');
+        const dropText = document.getElementById('drop-text');
+        const form = document.getElementById('convert-form');
+        const submitBtn = document.getElementById('submit-btn');
+
+        function setMode(mode, tabElement) {
+            // Update tabs
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            tabElement.classList.add('active');
+
+            // Reset file input
+            fileInput.value = '';
+            fileNameDisplay.style.display = 'none';
+
+            if (mode === 'md-to-pdf') {
+                form.action = '/convert';
+                fileInput.accept = '.md';
+                dropText.innerHTML = 'Arraste seu arquivo .md aqui<br>ou clique para selecionar';
+                submitBtn.textContent = 'Converter para PDF';
+            } else {
+                form.action = '/convert-to-md';
+                fileInput.accept = '.pdf';
+                dropText.innerHTML = 'Arraste seu arquivo .pdf aqui<br>ou clique para selecionar';
+                submitBtn.textContent = 'Converter para Markdown';
+            }
+        }
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                fileNameDisplay.textContent = `Arquivo selecionado: ${e.target.files[0].name}`;
+                fileNameDisplay.style.display = 'block';
+                dropText.style.display = 'none';
+            }
+        });
+
+        // Drag and drop visual effects
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropZone.classList.add('dragover');
+        }
+
+        function unhighlight(e) {
+            dropZone.classList.remove('dragover');
+        }
+
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            fileInput.files = files;
+
+            if (files.length > 0) {
+                fileNameDisplay.textContent = `Arquivo selecionado: ${files[0].name}`;
+                fileNameDisplay.style.display = 'block';
+                dropText.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+
+</html>

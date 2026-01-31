@@ -1,0 +1,4 @@
+flask>=2.0
+markdown>=3.0
+xhtml2pdf>=0.2
+PyMuPDF>=1.20

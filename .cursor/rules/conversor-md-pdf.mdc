@@ -1,0 +1,53 @@
+---
+description: Agente de IA do projeto Conversor MD↔PDF — arquitetura, convenções e orientações
+alwaysApply: true
+---
+
+# Conversor MD ↔ PDF — Guia do agente
+
+**Orientação de desenvolvimento:** API-first. Definir contrato → implementar API → implementar clientes (web, Android, iOS) que consomem a mesma API, para desenvolver tudo de uma vez. Ver regra [api-first.mdc](api-first.mdc).
+
+## O que é o projeto
+
+Sistema de conversão bidirecional para **qualquer documento** (currículos, artigos, relatórios, etc.):
+- **MD → PDF**: Markdown vira HTML (markdown + extensões) e depois PDF (xhtml2pdf/pisa). Inclui opcionalmente tech badges e seção "About Me" estilizada.
+- **PDF → MD**: PDF analisado com PyMuPDF (fitz); heurísticas de tamanho de fonte (headers), negrito/itálico e listas geram Markdown.
+
+## Arquitetura
+
+| Arquivo | Função |
+|---------|--------|
+| `app.py` | Flask: rotas `/convert` (MD→PDF) e `/convert-to-md` (PDF→MD), CSS do PDF, pré-processamento (badges, about-section). |
+| `pdf_engine.py` | Classe `PDFReconstructor`: abre PDF com fitz, analisa fontes, reconstrói blocos e gera Markdown. |
+| `convert_md_to_pdf.py` | Script standalone MD→PDF (evitar caminhos fixos; preferir argumentos ou reutilizar lógica de `app.py`). |
+| `templates/index.html` | UI: abas "MD para PDF" / "PDF para MD", drag & drop, um form que muda `action` e `accept` conforme a aba. |
+
+## API (web, Android, iOS — mesmo contrato)
+
+Backend é **API-first**: a mesma lógica serve o site e futuros apps. Regra: **um contrato, três UIs**.
+
+| Endpoint | Método | Request | Response (sucesso) | Response (erro) |
+|----------|--------|---------|--------------------|------------------|
+| `/api/convert` | POST | `multipart/form-data`, campo `file` (.md) | 200 + PDF binary, `Content-Disposition: attachment` | 400/500 + JSON `{"error": "mensagem"}` |
+| `/api/convert-to-md` | POST | `multipart/form-data`, campo `file` (.pdf) | 200 + MD binary, `Content-Disposition: attachment` | 400/500 + JSON `{"error": "mensagem"}` |
+
+- Base URL: onde o backend estiver (ex.: `https://seu-dominio.com`).
+- Limite de upload: 10 MB (`MAX_CONTENT_LENGTH`).
+- Validação: apenas `.md` em `/api/convert` e `.pdf` em `/api/convert-to-md`; extensão validada no backend.
+
+Ao criar cliente (web, Android, iOS): usar exatamente esses endpoints e esse contrato para a interface ficar igual em todos.
+
+## Convenções ao editar
+
+1. **CSS do PDF**: Existe em `app.py` (e duplicado em `convert_md_to_pdf.py`). Ao alterar estilo do PDF, manter um único lugar (ex.: módulo ou arquivo compartilhado) e importar onde necessário.
+2. **Arquivos temporários**: Em `/convert-to-md` usar `tempfile.NamedTemporaryFile(delete=False)` e `os.unlink` após uso. Não usar `temp_{filename}` (risco de conflito e path traversal).
+3. **Uploads**: Validar extensão (e tamanho máximo, se aplicável) no backend; não confiar só no `accept` do HTML.
+4. **Caminhos**: Não hardcodar caminhos como `d:/curriculo/...`. Usar argumentos (cli), config ou paths relativos.
+5. **Imagens no PDF**: xhtml2pdf pode falhar com imagens remotas (ex.: Shields.io). Ao adicionar recursos que usem imagens, testar; se necessário, considerar WeasyPrint ou desativar imagens remotas.
+
+## O que priorizar em mudanças
+
+- Centralizar CSS do PDF e reutilizar em `app.py` e `convert_md_to_pdf.py`.
+- Segurança: temp file seguro e validação de upload.
+- Manter `pdf_engine.py` com heurísticas simples; documentar limitações para PDFs com layout atípico.
+- Manter regra concisa; referir este arquivo quando o contexto for "conversor MD↔PDF" ou "BeSaveMD".

@@ -1,0 +1,31 @@
+---
+description: Regra de desenvolvimento API-first — definir contrato, implementar API, depois clientes (web, Android, iOS) em paralelo
+alwaysApply: true
+---
+
+# Desenvolvimento API-first
+
+Objetivo: **desenvolver tudo de uma vez** — backend e clientes (web, Android, iOS) alinhados ao mesmo contrato. A API é a única fonte de verdade.
+
+## Ordem de trabalho
+
+1. **Contrato primeiro**  
+   Definir: endpoint, método, body (ex.: multipart `file`), response (sucesso = binary ou JSON; erro = JSON `{"error": "..."}`). Documentar na regra do projeto (ex.: `conversor-md-pdf.mdc`) ou em `api/README`/OpenAPI.
+
+2. **Implementar a API**  
+   No backend (ex.: `app.py`): lógica de negócio em funções reutilizáveis (ex.: `_md_to_pdf_bytes`, `_pdf_to_md_bytes`). Rotas `/api/*` chamam essas funções e devolvem conforme o contrato. Nenhuma lógica de conversão/regra de negócio nos clientes.
+
+3. **Implementar clientes em paralelo**  
+   Web, Android e iOS só fazem: HTTP POST para o endpoint, envio do body (ex.: arquivo), leitura da response (arquivo ou JSON de erro). UI pode ser diferente; o **fluxo** (request/response) é o mesmo para todos.
+
+## Regras ao codar
+
+- **Novo recurso** → primeiro contrato (endpoint + request/response), depois implementação na API, depois cada cliente consome a API. Não implementar lógica duplicada no cliente.
+- **Correção de bug** → se for na conversão/regra de negócio, corrigir no backend; clientes não recalculam nada.
+- **Mudar contrato** → atualizar API e **todos** os clientes que usam esse endpoint; atualizar documentação na regra do projeto.
+
+## Checklist rápido
+
+- [ ] Contrato definido e documentado?
+- [ ] API implementada e retornando conforme contrato (sucesso + erro JSON)?
+- [ ] Clientes apenas chamam a API e exibem resultado/erro (sem lógica de conversão)?
