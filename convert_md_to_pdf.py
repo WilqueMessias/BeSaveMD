@@ -2,68 +2,7 @@ import markdown
 from xhtml2pdf import pisa
 import sys
 import argparse
-
-# Custom CSS for the PDF
-css = """
-<style>
-    @page {
-        size: A4;
-        margin: 1cm;
-    }
-    body {
-        font-family: Helvetica, Arial, sans-serif;
-        font-size: 11pt;
-        line-height: 1.5;
-        color: #333;
-    }
-    h1 {
-        font-size: 24pt;
-        color: #2c3e50;
-        margin-bottom: 0.2cm;
-        text-align: center;
-    }
-    h2 {
-        font-size: 16pt;
-        color: #2980b9;
-        border-bottom: 2px solid #2980b9;
-        padding-bottom: 5px;
-        margin-top: 15px;
-        margin-bottom: 10px;
-    }
-    h3 {
-        font-size: 13pt;
-        color: #34495e;
-        margin-top: 10px;
-        margin-bottom: 5px;
-    }
-    p {
-        margin: 5px 0;
-    }
-    a {
-        text-decoration: none;
-        color: #2980b9;
-    }
-    ul {
-        margin: 5px 0;
-        padding-left: 20px;
-    }
-    li {
-        margin-bottom: 3px;
-    }
-    .header {
-        text-align: center;
-        margin-bottom: 20px;
-    }
-    br {
-        display: block;
-        margin: 5px 0;
-    }
-    /* Center div support */
-    div[align="center"] {
-        text-align: center;
-    }
-</style>
-"""
+from pdf_styles import CSS_STYLE
 
 def convert_md_to_pdf(md_file, pdf_file):
     try:
@@ -75,7 +14,7 @@ def convert_md_to_pdf(md_file, pdf_file):
         html_content = markdown.markdown(text, extensions=['extra'])
 
         # Combine CSS and HTML
-        full_html = f"<html><head><meta charset='utf-8'>{css}</head><body>{html_content}</body></html>"
+        full_html = f"<html><head><meta charset='utf-8'>{CSS_STYLE}</head><body>{html_content}</body></html>"
 
         # Generate PDF
         with open(pdf_file, "wb") as f:
