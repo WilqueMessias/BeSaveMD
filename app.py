@@ -1,4 +1,4 @@
-print("--- STARTING APP ---")
+print("-- - STARTING APP ---")
 from flask import Flask, render_template, request, send_file, jsonify
 import io
 import os
@@ -8,6 +8,7 @@ import markdown
 from xhtml2pdf import pisa
 import fitz  # PyMuPDF
 from pdf_styles import CSS_STYLE
+from flask_restx import Api, Namespace, Resource, reqparse
 
 app = Flask(__name__)
 
@@ -140,53 +141,101 @@ def convert_to_md():
 
 
 # --- API: mesmo contrato para web, Android e iOS ---
+api = Api(app, 
+          version='1.0', 
+          title='Conversor MD/PDF API', 
+          description='API para converter arquivos Markdown para PDF e vice-versa',
+          doc='/api/docs'
+)
 
-@app.route('/api/convert', methods=['POST'])
-def api_convert():
-    """POST multipart 'file' (.md) → 200 + PDF binary ou 4xx/5xx + JSON {error}."""
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part"}), 400
-    file = request.files['file']
-    if not file or file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
-    if not _validate_ext(file.filename, ALLOWED_EXT_MD):
-        return jsonify({"error": "Arquivo deve ser .md"}), 400
-    try:
-        text = file.read().decode('utf-8')
-        pdf_bytes = _md_to_pdf_bytes(text, file.filename)
-        out_name = f"{os.path.splitext(file.filename)[0]}.pdf"
-        return send_file(
-            io.BytesIO(pdf_bytes),
-            as_attachment=True,
-            download_name=out_name,
-            mimetype='application/pdf'
-        )
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+md_pdf_ns = Namespace('md-to-pdf', description='Conversão de Markdown para PDF')
+pdf_md_ns = Namespace('pdf-to-md', description='Conversão de PDF para Markdown')
+
+api.add_namespace(md_pdf_ns)
+api.add_namespace(pdf_md_ns)
+
+# Parser para upload de arquivo Markdown
+md_upload_parser = reqparse.RequestParser()
+md_upload_parser.add_argument('file', 
+                             type='FileStorage', 
+                             location='files', 
+                             required=True, 
+                             help='Arquivo Markdown (.md) para conversão')
+
+# Parser para upload de arquivo PDF
+pdf_upload_parser = reqparse.RequestParser()
+pdf_upload_parser.add_argument('file', 
+                              type='FileStorage', 
+                              location='files', 
+                              required=True, 
+                              help='Arquivo PDF (.pdf) para conversão')
 
 
-@app.route('/api/convert-to-md', methods=['POST'])
-def api_convert_to_md():
-    """POST multipart 'file' (.pdf) → 200 + MD binary ou 4xx/5xx + JSON {error}."""
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part"}), 400
-    file = request.files['file']
-    if not file or file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
-    if not _validate_ext(file.filename, ALLOWED_EXT_PDF):
-        return jsonify({"error": "Arquivo deve ser .pdf"}), 400
-    try:
-        pdf_bytes = file.read()
-        md_content = _pdf_to_md_bytes(pdf_bytes, file.filename)
-        out_name = f"{os.path.splitext(file.filename)[0]}.md"
-        return send_file(
-            io.BytesIO(md_content.encode('utf-8')),
-            as_attachment=True,
-            download_name=out_name,
-            mimetype='text/markdown'
-        )
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+@md_pdf_ns.route('/')
+class MdToPdfConverter(Resource):
+    @md_pdf_ns.doc(description='Converte um arquivo Markdown para PDF.')
+    @md_pdf_ns.expect(md_upload_parser)
+    @md_pdf_ns.produces(['application/pdf', 'application/json'])
+    @md_pdf_ns.response(200, 'Sucesso', headers={'Content-Disposition': 'attachment; filename=*.pdf'})
+    @md_pdf_ns.response(400, 'Requisição inválida', model=api.model('Error', {'error': api.fields.String}))
+    @md_pdf_ns.response(500, 'Erro interno do servidor', model=api.model('Error', {'error': api.fields.String}))
+    def post(self):
+        """Converte um arquivo Markdown (.md) para PDF."""
+        args = md_upload_parser.parse_args()
+        file = args['file']
+        
+        if not file or file.filename == '':
+            return jsonify({"error": "No selected file"}), 400
+        
+        if not _validate_ext(file.filename, ALLOWED_EXT_MD):
+            return jsonify({"error": "Arquivo deve ser .md"}), 400
+        
+        try:
+            text = file.read().decode('utf-8')
+            pdf_bytes = _md_to_pdf_bytes(text, file.filename)
+            out_name = f"{os.path.splitext(file.filename)[0]}.pdf"
+            return send_file(
+                io.BytesIO(pdf_bytes),
+                as_attachment=True,
+                download_name=out_name,
+                mimetype='application/pdf'
+            )
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+
+@pdf_md_ns.route('/')
+class PdfToMdConverter(Resource):
+    @pdf_md_ns.doc(description='Converte um arquivo PDF para Markdown.')
+    @pdf_md_ns.expect(pdf_upload_parser)
+    @pdf_md_ns.produces(['text/markdown', 'application/json'])
+    @pdf_md_ns.response(200, 'Sucesso', headers={'Content-Disposition': 'attachment; filename=*.md'})
+    @pdf_md_ns.response(400, 'Requisição inválida', model=api.model('Error', {'error': api.fields.String}))
+    @pdf_md_ns.response(500, 'Erro interno do servidor', model=api.model('Error', {'error': api.fields.String}))
+    def post(self):
+        """Converte um arquivo PDF (.pdf) para Markdown."""
+        args = pdf_upload_parser.parse_args()
+        file = args['file']
+
+        if not file or file.filename == '':
+            return jsonify({"error": "No selected file"}), 400
+
+        if not _validate_ext(file.filename, ALLOWED_EXT_PDF):
+            return jsonify({"error": "Arquivo deve ser .pdf"}), 400
+
+        try:
+            pdf_bytes = file.read()
+            md_content = _pdf_to_md_bytes(pdf_bytes, file.filename)
+            out_name = f"{os.path.splitext(file.filename)[0]}.md"
+            return send_file(
+                io.BytesIO(md_content.encode('utf-8')),
+                as_attachment=True,
+                download_name=out_name,
+                mimetype='text/markdown'
+            )
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=False, port=5050)
