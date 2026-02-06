@@ -2,13 +2,13 @@
 
 This list is automatically updated by your **Job Finder Agent**. Use this to track applications and contact companies directly.
 
-| Date Found | Company Name | Job Title | Contact/Email | Status |
+| Date Found | Company Name | Job Title | Contact/Email | AI Assessment |
 | :--- | :--- | :--- | :--- | :--- |
-| 2026-02-06 | DarkVision | Python Developer | recruiting@darkvision.com | To be Applied |
-| 2026-02-06 | BIMstudio | Python Automation Dev | hr@bimstudio.ca | To be Applied |
-| 2026-02-06 | Atlantis IT Group | Backend / Django Dev | contact@atlantisit.ca | To be Applied |
+| 2026-02-06 | DarkVision | Python Developer | recruiting@darkvision.com | 95% - High priority (LMIA) |
+| 2026-02-06 | BIMstudio | Python Automation Dev | hr@bimstudio.ca | 90% - Matches Police Project |
+| 2026-02-06 | Atlantis IT Group | Backend / Django Dev | contact@atlantisit.ca | 85% - Backend focus |
 | 2026-02-06 | VanHack | Python/Django Roles | talent@vanhack.com | Researching |
-| 2026-02-06 | PointClickCare | Automation Engineer | jobs@pointclickcare.com | Researching |
+| 2026-02-06 | PointClickCare | Automation Engineer | jobs@pointclickcare.com | 88% - Automation Focus |
 
 ---
 ## 🤖 Agent Instructions

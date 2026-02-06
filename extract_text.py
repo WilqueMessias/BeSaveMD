@@ -1,8 +1,8 @@
 import pypdf
 import sys
 
-pdf_path = "d:/curriculo/EN_Wilque_Messias_de_Lima.pdf"
-output_path = "d:/curriculo/pdf_content.txt"
+pdf_path = "d:/curriculo/sei 202500007050487.pdf"
+output_path = "d:/curriculo/sei_content.txt"
 
 try:
     reader = pypdf.PdfReader(pdf_path)

@@ -1,7 +1,8 @@
-# Cover Letter: Wilque Messias de Lima
+# Cover Letter 
+Wilque Messias de Lima
 
 **To: Hiring Manager**  
-**Re: Application for Software Developer / Automation Specialist**
+**Re: Application for Software Developer**
 
 Dear Hiring Manager,
 
